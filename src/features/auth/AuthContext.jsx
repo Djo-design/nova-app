@@ -29,11 +29,6 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-  // 🔥 nettoyer l’URL après login Google
-  if (window.location.hash.includes('access_token')) {
-    window.location.hash = ''
-  }
-
   // récupérer la session
   supabase.auth.getSession().then(({ data: { session } }) => {
     setUser(session?.user ?? null)
