@@ -1,10 +1,14 @@
 // src/features/artist/ArtistPage.jsx
 import { useState, useEffect } from 'react'
+<parameter name="file_text">// src/features/artist/ArtistPage.jsx
+import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '@/shared/lib/supabase'
 import { useAuth } from '@/features/auth/AuthContext'
 import { usePlayer } from '@/features/player/PlayerContext'
 import { LikeButton } from '@/shared/ui/LikeButton'
+import { FollowButton } from '@/shared/ui/FollowButton'
+import { ReportButton } from '@/shared/ui/ReportButton'
 import { YouTubeModal } from '@/shared/ui/YouTubeModal'
 
 const PLATFORM_ICONS = {
@@ -30,21 +34,19 @@ export function ArtistPage() {
   const { playQueue } = usePlayer()
   const navigate = useNavigate()
 
-  const [profile, setProfile]           = useState(null)
+  const [profile, setProfile]             = useState(null)
   const [artistProfile, setArtistProfile] = useState(null)
-  const [tracks, setTracks]             = useState([])
-  const [videos, setVideos]             = useState([])
-  const [ytVideos, setYtVideos]         = useState([])
-  const [links, setLinks]               = useState([])
-  const [followersCount, setFollowers]  = useState(0)
-  const [isFollowing, setIsFollowing]   = useState(false)
-  const [activeTab, setActiveTab]       = useState(0)
-  const [loading, setLoading]           = useState(true)
-  const [ytModal, setYtModal]           = useState(null) // youtube_id ou null
+  const [tracks, setTracks]               = useState([])
+  const [videos, setVideos]               = useState([])
+  const [ytVideos, setYtVideos]           = useState([])
+  const [links, setLinks]                 = useState([])
+  const [activeTab, setActiveTab]         = useState(0)
+  const [loading, setLoading]             = useState(true)
+  const [ytModal, setYtModal]             = useState(null)
 
   const isOwnProfile = user?.id === artistId
 
-  useEffect(() => { fetchAll() }, [artistId, user])
+  useEffect(() => { fetchAll() }, [artistId])
 
   async function fetchAll() {
     setLoading(true)
@@ -55,15 +57,13 @@ export function ArtistPage() {
       { data: vids },
       { data: yts },
       { data: lnks },
-      { count: followers },
     ] = await Promise.all([
       supabase.from('profiles').select('*').eq('id', artistId).single(),
       supabase.from('artist_profiles').select('*').eq('user_id', artistId).single(),
-      supabase.from('tracks').select('*').eq('artist_id', artistId).is('deleted_at', null).order('created_at', { ascending: false }),
-      supabase.from('videos').select('*').eq('artist_id', artistId).is('deleted_at', null).order('created_at', { ascending: false }),
+      supabase.from('tracks').select('*').eq('artist_id', artistId).is('deleted_at', null).order('plays', { ascending: false }),
+      supabase.from('videos').select('*').eq('artist_id', artistId).is('deleted_at', null).order('views', { ascending: false }),
       supabase.from('artist_youtube_videos').select('*').eq('artist_id', artistId).order('sort_order'),
       supabase.from('artist_external_links').select('*').eq('artist_id', artistId).order('sort_order'),
-      supabase.from('follows').select('*', { count: 'exact', head: true }).eq('artist_id', artistId),
     ])
     setProfile(prof)
     setArtistProfile(artProf)
@@ -71,23 +71,7 @@ export function ArtistPage() {
     setVideos(vids || [])
     setYtVideos(yts || [])
     setLinks(lnks || [])
-    setFollowers(followers || 0)
-    if (user) {
-      const { data: fd } = await supabase.from('follows').select('follower_id').eq('follower_id', user.id).eq('artist_id', artistId).single()
-      setIsFollowing(!!fd)
-    }
     setLoading(false)
-  }
-
-  async function toggleFollow() {
-    if (!user) { navigate('/login'); return }
-    if (isFollowing) {
-      await supabase.from('follows').delete().eq('follower_id', user.id).eq('artist_id', artistId)
-      setFollowers(c => c - 1); setIsFollowing(false)
-    } else {
-      await supabase.from('follows').insert({ follower_id: user.id, artist_id: artistId })
-      setFollowers(c => c + 1); setIsFollowing(true)
-    }
   }
 
   function openExternalLink(url) {
@@ -116,7 +100,6 @@ export function ArtistPage() {
 
   return (
     <div style={styles.page}>
-      {/* YouTube Modal (lecture dans l'app) */}
       {ytModal && <YouTubeModal videoId={ytModal} onClose={() => setYtModal(null)} />}
 
       <button style={styles.backFloat} onClick={() => navigate(-1)}>←</button>
@@ -131,7 +114,7 @@ export function ArtistPage() {
           <div style={styles.avatar}>
             {profile.avatar_url
               ? <img src={profile.avatar_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
-              : <span style={{ fontSize: '40px' }}>🎤</span>}
+              : <span style={{ fontSize: '36px' }}>🎤</span>}
           </div>
           <div style={styles.heroInfo}>
             <h1 style={styles.artistName}>{profile.username}</h1>
@@ -148,10 +131,10 @@ export function ArtistPage() {
       {/* Stats */}
       <div style={styles.statsBar}>
         {[
-          { label: 'Abonnés', value: followersCount },
-          { label: 'Tracks',  value: tracks.length  },
-          { label: 'Écoutes', value: totalPlays      },
-          { label: 'Likes',   value: totalLikes      },
+          { label: 'Tracks',  value: tracks.length },
+          { label: 'Écoutes', value: totalPlays    },
+          { label: 'Likes',   value: totalLikes    },
+          { label: 'Vues',    value: totalViews    },
         ].map((s, i, arr) => (
           <div key={s.label} style={{ display: 'flex', alignItems: 'center', flex: 1 }}>
             <div style={styles.statItem}>
@@ -165,19 +148,27 @@ export function ArtistPage() {
 
       {/* Actions */}
       <div style={styles.actionsRow}>
-        {!isOwnProfile && (
-          <button style={{ ...styles.followBtn, ...(isFollowing ? styles.followBtnActive : {}) }} onClick={toggleFollow}>
-            {isFollowing ? '✓ Abonné' : '+ Suivre'}
-          </button>
-        )}
+        {/* Bouton suivre — composant réutilisable */}
+        {!isOwnProfile && <FollowButton artistId={artistId} />}
+
         {isOwnProfile && (
           <button style={styles.editBtn} onClick={() => navigate('/profile/edit')}>✏️ Modifier</button>
         )}
+
+        {/* Signaler le profil */}
+        {!isOwnProfile && user && (
+          <ReportButton targetType="profile" targetId={artistId} />
+        )}
+
+        {/* Liens sociaux */}
         {links.map(link => {
           const p = PLATFORM_ICONS[link.platform] || PLATFORM_ICONS.other
           return (
-            <button key={link.id} style={{ ...styles.linkBtn, borderColor: p.color + '44' }} onClick={() => openExternalLink(link.url)}>
-              <span style={{ color: p.color, fontSize: '14px' }}>{p.icon}</span>
+            <button key={link.id}
+              style={{ ...styles.linkBtn, borderColor: p.color + '44' }}
+              onClick={() => openExternalLink(link.url)}
+            >
+              <span style={{ color: p.color, fontSize: '13px' }}>{p.icon}</span>
               <span style={styles.linkLabel}>{link.label || p.label}</span>
             </button>
           )
@@ -194,10 +185,13 @@ export function ArtistPage() {
       {/* Tabs */}
       <div style={styles.tabs}>
         {TABS.map((t, i) => (
-          <button key={i} style={{ ...styles.tab, ...(activeTab === i ? styles.tabActive : {}) }} onClick={() => setActiveTab(i)}>
+          <button key={i}
+            style={{ ...styles.tab, ...(activeTab === i ? styles.tabActive : {}) }}
+            onClick={() => setActiveTab(i)}
+          >
             {t}
-            {i === 0 && tracks.length > 0 && <span style={styles.tabCount}>{tracks.length}</span>}
-            {i === 1 && videos.length > 0 && <span style={styles.tabCount}>{videos.length}</span>}
+            {i === 0 && tracks.length > 0   && <span style={styles.tabCount}>{tracks.length}</span>}
+            {i === 1 && videos.length > 0   && <span style={styles.tabCount}>{videos.length}</span>}
             {i === 2 && ytVideos.length > 0 && <span style={styles.tabCount}>{ytVideos.length}</span>}
           </button>
         ))}
@@ -212,14 +206,17 @@ export function ArtistPage() {
             : tracks.map((track, i) => (
               <div key={track.id} style={styles.trackRow} onClick={() => playQueue(tracks, i)}>
                 <div style={styles.trackCover}>
-                  {track.cover_url ? <img src={track.cover_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" /> : <span style={{ fontSize: '18px' }}>🎵</span>}
+                  {track.cover_url
+                    ? <img src={track.cover_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
+                    : <span style={{ fontSize: '18px' }}>🎵</span>}
                 </div>
                 <div style={styles.trackInfo}>
                   <div style={styles.trackTitle}>{track.title}</div>
                   <div style={styles.trackMeta}>{[track.genre, fmtTime(track.duration)].filter(Boolean).join(' · ')}</div>
                 </div>
-                <div onClick={e => e.stopPropagation()}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }} onClick={e => e.stopPropagation()}>
                   <LikeButton targetType="track" targetId={track.id} initialLikes={track.likes} size="sm" />
+                  <ReportButton targetType="track" targetId={track.id} />
                 </div>
               </div>
             ))
@@ -231,19 +228,28 @@ export function ArtistPage() {
             ? <div style={styles.empty}>Aucune vidéo uploadée</div>
             : <div style={styles.videoGrid}>
                 {videos.map(video => (
-                  <div key={video.id} style={styles.videoCard} onClick={() => navigate('/tv')}>
-                    <div style={styles.videoThumb}>
-                      {video.thumb_url ? <img src={video.thumb_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" /> : <span style={{ fontSize: '28px' }}>📹</span>}
+                  <div key={video.id} style={styles.videoCard}>
+                    <div style={styles.videoThumb} onClick={() => navigate('/tv')}>
+                      {video.thumb_url
+                        ? <img src={video.thumb_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
+                        : <span style={{ fontSize: '28px' }}>📹</span>}
                       <div style={styles.playOverlay}>▶</div>
                     </div>
-                    <div style={styles.videoTitle}>{video.title}</div>
-                    <div style={styles.videoMeta}>👁 {video.views || 0} · ♥ {video.likes || 0}</div>
+                    <div style={styles.videoFooter}>
+                      <div style={styles.videoTitle}>{video.title}</div>
+                      <div style={styles.videoMeta}>
+                        <span>👁 {video.views || 0}</span>
+                        <div onClick={e => e.stopPropagation()}>
+                          <ReportButton targetType="video" targetId={video.id} />
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 ))}
               </div>
         )}
 
-        {/* YOUTUBE — lecture dans l'app via modal */}
+        {/* YOUTUBE — lecture dans l'app */}
         {activeTab === 2 && (
           ytVideos.length === 0
             ? <div style={styles.empty}>Aucune vidéo YouTube ajoutée</div>
@@ -267,23 +273,20 @@ export function ArtistPage() {
 
         {/* INFOS */}
         {activeTab === 3 && (
-          <div style={styles.infoSection}>
-            <div style={styles.infoCard}>
-              <div style={styles.infoLabel}>STATISTIQUES</div>
-              {[
-                ['Total écoutes', totalPlays],
-                ['Total likes', totalLikes],
-                ['Total vues vidéo', totalViews],
-                ['Abonnés', followersCount],
-                ['Tracks', tracks.length],
-                ['Vidéos', videos.length],
-              ].map(([k, v]) => (
-                <div key={k} style={styles.infoRow}>
-                  <span style={styles.infoKey}>{k}</span>
-                  <span style={styles.infoVal}>{v}</span>
-                </div>
-              ))}
-            </div>
+          <div style={styles.infoCard}>
+            <div style={styles.infoLabel}>STATISTIQUES</div>
+            {[
+              ['Écoutes totales', totalPlays],
+              ['Likes totaux',    totalLikes],
+              ['Vues vidéo',      totalViews],
+              ['Tracks',          tracks.length],
+              ['Vidéos',          videos.length],
+            ].map(([k, v]) => (
+              <div key={k} style={styles.infoRow}>
+                <span style={styles.infoKey}>{k}</span>
+                <span style={styles.infoVal}>{v}</span>
+              </div>
+            ))}
           </div>
         )}
       </div>
@@ -299,7 +302,7 @@ const styles = {
   hero: { position: 'relative', height: '240px', display: 'flex', alignItems: 'flex-end' },
   heroBg: { position: 'absolute', inset: 0 },
   heroBgImg: { width: '100%', height: '100%', objectFit: 'cover', filter: 'blur(20px)', transform: 'scale(1.1)', opacity: 0.3 },
-  heroBgOverlay: { position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(9,9,9,0.3), rgba(9,9,9,0.95))' },
+  heroBgOverlay: { position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(9,9,9,0.2), rgba(9,9,9,0.97))' },
   heroContent: { position: 'relative', zIndex: 1, display: 'flex', alignItems: 'flex-end', gap: '14px', padding: '0 16px 16px', width: '100%' },
   avatar: { width: '76px', height: '76px', borderRadius: '50%', background: '#1a1a1a', border: '2px solid #00FF87', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 0 20px rgba(0,255,135,0.25)' },
   heroInfo: { flex: 1, minWidth: 0 },
@@ -307,20 +310,18 @@ const styles = {
   genres: { display: 'flex', flexWrap: 'wrap', gap: '5px', marginTop: '5px' },
   genreTag: { background: 'rgba(123,47,190,0.3)', border: '1px solid rgba(123,47,190,0.4)', borderRadius: '20px', padding: '2px 9px', fontSize: '10px', color: '#a87bd4', fontFamily: "'Space Grotesk',sans-serif", fontWeight: 600 },
   country: { fontFamily: "'Inter',sans-serif", fontSize: '12px', color: '#888', margin: '4px 0 0' },
-  statsBar: { display: 'flex', alignItems: 'center', padding: '12px 20px', background: '#111', borderBottom: '1px solid #1a1a1a' },
+  statsBar: { display: 'flex', alignItems: 'center', padding: '12px 16px', background: '#111', borderBottom: '1px solid #1a1a1a' },
   statItem: { flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' },
   statNum: { fontFamily: "'Space Grotesk',sans-serif", fontSize: '17px', fontWeight: 700, color: '#fff' },
   statLabel: { fontFamily: "'Inter',sans-serif", fontSize: '10px', color: '#555' },
   statDiv: { width: '1px', height: '26px', background: '#222', flexShrink: 0 },
-  actionsRow: { display: 'flex', gap: '8px', padding: '12px 16px', overflowX: 'auto' },
-  followBtn: { background: '#00FF87', color: '#000', border: 'none', borderRadius: '20px', padding: '9px 20px', fontSize: '13px', fontWeight: 700, fontFamily: "'Space Grotesk',sans-serif", cursor: 'pointer', flexShrink: 0 },
-  followBtnActive: { background: 'transparent', color: '#00FF87', border: '1px solid #00FF87' },
+  actionsRow: { display: 'flex', gap: '8px', padding: '12px 16px', overflowX: 'auto', alignItems: 'center' },
   editBtn: { background: 'rgba(0,255,135,0.08)', color: '#00FF87', border: '1px solid rgba(0,255,135,0.2)', borderRadius: '20px', padding: '9px 14px', fontSize: '12px', fontFamily: "'Space Grotesk',sans-serif", cursor: 'pointer', flexShrink: 0 },
   linkBtn: { display: 'flex', alignItems: 'center', gap: '5px', background: '#111', border: '1px solid #222', borderRadius: '20px', padding: '7px 12px', cursor: 'pointer', flexShrink: 0 },
   linkLabel: { fontFamily: "'Inter',sans-serif", fontSize: '12px', color: '#ccc' },
   bioBox: { padding: '0 16px 12px' },
   bioText: { fontFamily: "'Inter',sans-serif", fontSize: '13px', color: '#aaa', lineHeight: 1.6, margin: 0 },
-  tabs: { display: 'flex', borderBottom: '1px solid #1a1a1a', position: 'sticky', top: 0, background: 'rgba(9,9,9,0.95)', backdropFilter: 'blur(12px)', zIndex: 10 },
+  tabs: { display: 'flex', borderBottom: '1px solid #1a1a1a', position: 'sticky', top: 0, background: 'rgba(9,9,9,0.97)', backdropFilter: 'blur(12px)', zIndex: 10 },
   tab: { flex: 1, background: 'none', border: 'none', padding: '12px 4px', color: '#555', fontSize: '12px', fontFamily: "'Space Grotesk',sans-serif", fontWeight: 700, cursor: 'pointer', borderBottom: '2px solid transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' },
   tabActive: { color: '#00FF87', borderBottomColor: '#00FF87' },
   tabCount: { background: 'rgba(0,255,135,0.15)', borderRadius: '10px', padding: '1px 5px', fontSize: '9px', color: '#00FF87' },
@@ -332,21 +333,21 @@ const styles = {
   trackTitle: { fontFamily: "'Space Grotesk',sans-serif", fontSize: '13px', fontWeight: 600, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   trackMeta: { fontSize: '11px', color: '#555', fontFamily: "'Inter',sans-serif", marginTop: '2px' },
   videoGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' },
-  videoCard: { cursor: 'pointer', borderRadius: '10px', overflow: 'hidden', background: '#111' },
-  videoThumb: { height: '96px', background: '#1a1a1a', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  videoCard: { borderRadius: '10px', overflow: 'hidden', background: '#111' },
+  videoThumb: { height: '96px', background: '#1a1a1a', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', cursor: 'pointer' },
   playOverlay: { position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px', color: '#fff' },
-  videoTitle: { fontFamily: "'Space Grotesk',sans-serif", fontSize: '12px', fontWeight: 600, color: '#fff', padding: '7px 8px 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
-  videoMeta: { fontFamily: "'Inter',sans-serif", fontSize: '10px', color: '#555', padding: '0 8px 7px' },
+  videoFooter: { padding: '7px 8px' },
+  videoTitle: { fontFamily: "'Space Grotesk',sans-serif", fontSize: '12px', fontWeight: 600, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  videoMeta: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '4px', fontFamily: "'Inter',sans-serif", fontSize: '10px', color: '#555' },
   ytGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' },
   ytCard: { cursor: 'pointer', borderRadius: '10px', overflow: 'hidden', background: '#111' },
   ytThumb: { height: '96px', background: '#1a1a1a', position: 'relative', overflow: 'hidden' },
   ytPlayOverlay: { position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px', color: '#fff' },
   ytBadge: { position: 'absolute', bottom: '5px', left: '5px', background: 'rgba(255,0,0,0.85)', borderRadius: '4px', padding: '2px 6px', fontSize: '9px', color: '#fff', fontFamily: "'Space Grotesk',sans-serif", fontWeight: 700 },
   ytTitle: { fontFamily: "'Space Grotesk',sans-serif", fontSize: '12px', fontWeight: 600, color: '#fff', padding: '7px 8px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
-  infoSection: { display: 'flex', flexDirection: 'column', gap: '12px' },
   infoCard: { background: '#111', border: '1px solid #1a1a1a', borderRadius: '12px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '10px' },
   infoLabel: { fontFamily: "'Space Grotesk',sans-serif", fontSize: '10px', fontWeight: 700, color: '#555', letterSpacing: '0.15em', marginBottom: '4px' },
-  infoRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
+  infoRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '8px', borderBottom: '1px solid #1a1a1a' },
   infoKey: { fontFamily: "'Inter',sans-serif", fontSize: '13px', color: '#888' },
   infoVal: { fontFamily: "'Space Grotesk',sans-serif", fontSize: '15px', fontWeight: 700, color: '#fff' },
   skeletonHeader: { height: '240px', background: 'linear-gradient(to bottom, #1a1a1a, #090909)' },

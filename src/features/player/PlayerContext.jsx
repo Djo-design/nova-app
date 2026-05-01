@@ -1,5 +1,5 @@
 // src/features/player/PlayerContext.jsx
-import { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react'
+import { createContext, useContext, useEffect, useRef, useState } from 'react'
 import { supabase } from '@/shared/lib/supabase'
 import { useAuth } from '@/features/auth/AuthContext'
 
@@ -7,100 +7,113 @@ const PlayerContext = createContext(null)
 
 export function PlayerProvider({ children }) {
   const { user } = useAuth()
-  const audioRef      = useRef(null)
-  const playTimerRef  = useRef(null)
-  const modeRef       = useRef('manual') // 'manual' | 'radio'
 
-  const [queue, setQueue]           = useState([])
-  const [allTracks, setAllTracks]   = useState([]) // pour la radio
-  const [currentIdx, setCurrentIdx] = useState(-1)
-  const [playing, setPlaying]       = useState(false)
-  const [progress, setProgress]     = useState(0)
-  const [currentTime, setCurrentTime] = useState(0)
-  const [duration, setDuration]     = useState(0)
-  const [volume, setVolume]         = useState(1)
-  const [fullscreen, setFullscreen] = useState(false)
-  const [mode, setMode]             = useState('manual') // 'manual' | 'radio'
-  const [radioActive, setRadioActive] = useState(false)
+  // ─── Refs (ne déclenchent pas de re-render) ───
+  const audioRef       = useRef(null)   // élément Audio unique
+  const queueRef       = useRef([])     // queue courante
+  const idxRef         = useRef(-1)     // index courant
+  const modeRef        = useRef('manual') // 'manual' | 'radio'
+  const allTracksRef   = useRef([])     // toutes les tracks pour la radio
+  const playTimerRef   = useRef(null)
 
-  const currentTrack = queue[currentIdx] ?? null
+  // ─── State (UI) ───
+  const [currentTrack, setCurrentTrack] = useState(null)
+  const [playing, setPlaying]           = useState(false)
+  const [progress, setProgress]         = useState(0)
+  const [currentTime, setCurrentTime]   = useState(0)
+  const [duration, setDuration]         = useState(0)
+  const [volume, setVolume]             = useState(1)
+  const [fullscreen, setFullscreen]     = useState(false)
+  const [mode, setMode]                 = useState('manual') // pour l'UI
+  const [radioActive, setRadioActive]   = useState(false)
 
-  // Charge toutes les tracks pour la radio au démarrage
+  // ─── Charge toutes les tracks pour la radio ───
   useEffect(() => {
-    supabase.from('tracks').select('*, profiles(username, avatar_url)').is('deleted_at', null).limit(200)
-      .then(({ data }) => setAllTracks(data || []))
+    supabase
+      .from('tracks')
+      .select('*, profiles(username, avatar_url)')
+      .is('deleted_at', null)
+      .limit(500)
+      .then(({ data }) => { allTracksRef.current = data || [] })
   }, [])
 
-  // Init audio element
+  // ─── Crée l'élément Audio une seule fois ───
   useEffect(() => {
     const audio = new Audio()
     audio.preload = 'metadata'
     audioRef.current = audio
 
-    const onTime = () => {
+    audio.addEventListener('timeupdate', () => {
       setCurrentTime(audio.currentTime)
       setDuration(audio.duration || 0)
       setProgress(audio.duration ? audio.currentTime / audio.duration : 0)
-    }
-    const onPlay  = () => setPlaying(true)
-    const onPause = () => setPlaying(false)
-    const onEnded = () => handleEnded()
+    })
+    audio.addEventListener('play',  () => setPlaying(true))
+    audio.addEventListener('pause', () => setPlaying(false))
+    audio.addEventListener('ended', handleEnded)
 
-    audio.addEventListener('timeupdate', onTime)
-    audio.addEventListener('play', onPlay)
-    audio.addEventListener('pause', onPause)
-    audio.addEventListener('ended', onEnded)
+    return () => { audio.pause(); audio.src = '' }
+  }, []) // eslint-disable-line
 
-    return () => {
-      audio.removeEventListener('timeupdate', onTime)
-      audio.removeEventListener('play', onPlay)
-      audio.removeEventListener('pause', onPause)
-      audio.removeEventListener('ended', onEnded)
-      audio.pause()
-    }
-  }, [])
-
-  function handleEnded() {
-    const m = modeRef.current
-    if (m === 'radio') {
-      // Radio : pick une track aléatoire
-      playRadioNext()
-    } else {
-      // Manuel : track suivante dans la queue
-      setCurrentIdx(prev => {
-        if (prev < queue.length - 1) return prev + 1
-        // Fin de queue → si radio était active avant, reprendre la radio
-        if (radioActive) {
-          modeRef.current = 'radio'
-          setMode('radio')
-          playRadioNext()
-        }
-        return prev
-      })
-    }
-  }
-
-  function playRadioNext() {
-    if (allTracks.length === 0) return
-    const randomTrack = allTracks[Math.floor(Math.random() * allTracks.length)]
-    setQueue([randomTrack])
-    setCurrentIdx(0)
-  }
-
-  // Change de src quand currentIdx change
-  useEffect(() => {
+  // ─── Joue la track à l'index donné ───
+  function loadAndPlay(queue, idx) {
     const audio = audioRef.current
-    if (!audio || currentIdx === -1 || !queue[currentIdx]) return
-    const track = queue[currentIdx]
+    if (!audio || idx < 0 || idx >= queue.length) return
+
+    const track = queue[idx]
+    queueRef.current = queue
+    idxRef.current   = idx
+
     audio.src = track.audio_url
     audio.load()
-    audio.play().catch(e => console.warn('Autoplay blocked:', e))
+
+    // Petit délai pour laisser le src se charger
+    const playPromise = audio.play()
+    if (playPromise) {
+      playPromise.catch(e => console.warn('play() blocked:', e))
+    }
+
+    setCurrentTrack(track)
     setProgress(0)
     setCurrentTime(0)
+
     // Anti-triche : comptabilise après 30s
     clearTimeout(playTimerRef.current)
     playTimerRef.current = setTimeout(() => incrementPlay(track.id), 30000)
-  }, [currentIdx, queue])
+  }
+
+  // ─── Appelé quand la track se termine ───
+  function handleEnded() {
+    const m = modeRef.current
+
+    if (m === 'radio') {
+      // Radio → track aléatoire suivante
+      playRandomRadio()
+    } else {
+      // Manuel → track suivante dans la queue
+      const nextIdx = idxRef.current + 1
+      if (nextIdx < queueRef.current.length) {
+        loadAndPlay(queueRef.current, nextIdx)
+      } else {
+        // Fin de queue manuelle → reprendre la radio si elle était active
+        if (radioActive) {
+          modeRef.current = 'radio'
+          setMode('radio')
+          playRandomRadio()
+        } else {
+          setPlaying(false)
+        }
+      }
+    }
+  }
+
+  function playRandomRadio() {
+    const tracks = allTracksRef.current
+    if (!tracks.length) return
+    const randomIdx = Math.floor(Math.random() * tracks.length)
+    const radioQueue = [tracks[randomIdx]]
+    loadAndPlay(radioQueue, 0)
+  }
 
   async function incrementPlay(trackId) {
     try {
@@ -109,64 +122,99 @@ export function PlayerProvider({ children }) {
       }
       await supabase.rpc('increment_plays', { row_id: trackId })
     } catch (e) {
-      console.error('incrementPlay error:', e)
+      console.error('incrementPlay:', e)
     }
   }
 
-  // ── API publique ──
+  // ─── API publique ───
 
-  function playTrack(track, newQueue = null) {
+  /** Lance une track (optionnel : avec une queue) */
+  function playTrack(track, queue = null) {
+    const q = queue || [track]
+    const idx = q.findIndex(t => t.id === track.id)
+
+    // Si c'est la track déjà en lecture → toggle play/pause
+    if (currentTrack?.id === track.id && !queue) {
+      togglePlay()
+      return
+    }
+
+    // Passe en mode manuel (pause la radio)
     modeRef.current = 'manual'
     setMode('manual')
-    const q = newQueue ?? [track]
-    if (newQueue) setQueue(newQueue)
-    else if (!queue.find(t => t.id === track.id)) setQueue([track])
 
-    const idx = q.findIndex(t => t.id === track.id)
-    if (idx === currentIdx && !newQueue) {
-      togglePlay()
-    } else {
-      setCurrentIdx(idx === -1 ? 0 : idx)
-    }
+    loadAndPlay(q, idx === -1 ? 0 : idx)
   }
 
+  /** Lance une queue à un index donné */
   function playQueue(tracks, startIdx = 0) {
     modeRef.current = 'manual'
     setMode('manual')
-    setQueue(tracks)
-    setCurrentIdx(startIdx)
+    loadAndPlay(tracks, startIdx)
   }
 
+  /** Lance la radio */
   function startRadio() {
     modeRef.current = 'radio'
     setMode('radio')
     setRadioActive(true)
-    playRadioNext()
+    playRandomRadio()
   }
 
+  /** Arrête la radio */
   function stopRadio() {
     modeRef.current = 'manual'
     setMode('manual')
     setRadioActive(false)
     audioRef.current?.pause()
-    setPlaying(false)
+  }
+
+  /** Met en pause l'audio (pour YouTube ou autre) */
+  function pauseForVideo() {
+    audioRef.current?.pause()
+  }
+
+  /** Reprend l'audio après une vidéo */
+  function resumeAfterVideo() {
+    if (modeRef.current === 'radio') {
+      playRandomRadio()
+    } else if (currentTrack) {
+      audioRef.current?.play().catch(() => {})
+    }
   }
 
   function togglePlay() {
     const audio = audioRef.current
     if (!audio) return
-    playing ? audio.pause() : audio.play().catch(() => {})
+    if (audio.paused) {
+      audio.play().catch(() => {})
+    } else {
+      audio.pause()
+    }
   }
 
   function next() {
-    if (mode === 'radio') { playRadioNext(); return }
-    if (currentIdx < queue.length - 1) setCurrentIdx(i => i + 1)
+    if (modeRef.current === 'radio') {
+      playRandomRadio()
+      return
+    }
+    const nextIdx = idxRef.current + 1
+    if (nextIdx < queueRef.current.length) {
+      loadAndPlay(queueRef.current, nextIdx)
+    }
   }
 
   function prev() {
     const audio = audioRef.current
-    if (audio && audio.currentTime > 3) { audio.currentTime = 0; return }
-    if (currentIdx > 0) setCurrentIdx(i => i - 1)
+    // Si plus de 3s écoulées → retour au début
+    if (audio && audio.currentTime > 3) {
+      audio.currentTime = 0
+      return
+    }
+    const prevIdx = idxRef.current - 1
+    if (prevIdx >= 0) {
+      loadAndPlay(queueRef.current, prevIdx)
+    }
   }
 
   function seek(ratio) {
@@ -182,11 +230,11 @@ export function PlayerProvider({ children }) {
 
   return (
     <PlayerContext.Provider value={{
-      currentTrack, queue, currentIdx, allTracks,
-      playing, progress, currentTime, duration, volume,
+      currentTrack, playing, progress, currentTime, duration, volume,
       fullscreen, setFullscreen,
       mode, radioActive,
       playTrack, playQueue, startRadio, stopRadio,
+      pauseForVideo, resumeAfterVideo,
       togglePlay, next, prev, seek, changeVolume,
     }}>
       {children}
