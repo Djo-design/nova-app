@@ -132,7 +132,7 @@ export function AuthProvider({ children }) {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: 'https://nova-app-delta.vercel.app'
+        redirectTo: 'https://nova-app-delta.vercel.app/'
       }
     })
     if (error) throw error
