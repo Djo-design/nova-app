@@ -7,16 +7,17 @@ const AuthContext = createContext(null)
 export function AuthProvider({ children }) {
   const [user, setUser]       = useState(null)
   useEffect(() => {
-  // récupérer la session au chargement
-  supabase.auth.getSession().then(({ data }) => {
-    setUser(data.session?.user ?? null)
+  // 🔹 récupérer session au démarrage
+  supabase.auth.getSession().then(({ data: { session } }) => {
+    console.log("SESSION INIT:", session)
+    setUser(session?.user ?? null)
   })
 
-  // écouter les changements (login/logout)
+  // 🔹 écouter login / logout
   const { data: listener } = supabase.auth.onAuthStateChange(
     (_event, session) => {
+      console.log("AUTH CHANGE:", session)
       setUser(session?.user ?? null)
-      console.log("USER ACTUEL :", user)
     }
   )
 
