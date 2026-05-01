@@ -1,0 +1,55 @@
+/* src/index.css */
+:root {
+  --color-primary: #00FF87;
+  --color-secondary: #7B2FBE;
+  --color-bg: #090909;
+  --color-surface: #111111;
+  --color-surface-high: #1A1A1A;
+  --color-border: #222222;
+  --color-text: #FFFFFF;
+  --color-text-muted: #888888;
+  --font-display: 'Space Grotesk', sans-serif;
+  --font-body: 'Inter', sans-serif;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  height: 100%;
+  background: #090909;
+  color: #fff;
+  font-family: 'Inter', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior: none;
+}
+
+#root {
+  height: 100%;
+}
+
+/* Scrollbars */
+::-webkit-scrollbar { display: none; }
+* { scrollbar-width: none; }
+
+/* Tap highlight mobile */
+* { -webkit-tap-highlight-color: transparent; }
+
+/* Selection */
+::selection {
+  background: rgba(0, 255, 135, 0.2);
+  color: #fff;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
