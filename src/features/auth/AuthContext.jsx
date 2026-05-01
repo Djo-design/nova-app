@@ -6,25 +6,61 @@ const AuthContext = createContext(null)
 
 export function AuthProvider({ children }) {
   const [user, setUser]       = useState(null)
+  useEffect(() => {
+  // récupérer la session au chargement
+  supabase.auth.getSession().then(({ data }) => {
+    setUser(data.session?.user ?? null)
+  })
+
+  // écouter les changements (login/logout)
+  const { data: listener } = supabase.auth.onAuthStateChange(
+    (_event, session) => {
+      setUser(session?.user ?? null)
+    }
+  )
+
+  return () => {
+    listener.subscription.unsubscribe()
+  }
+}, [])
   const [profile, setProfile] = useState(null)
   const [role, setRole]       = useState(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null)
-      if (session?.user) fetchProfile(session.user.id)
-      else setLoading(false)
-    })
+  // 🔥 nettoyer l’URL après login Google
+  if (window.location.hash.includes('access_token')) {
+    window.location.hash = ''
+  }
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null)
-      if (session?.user) fetchProfile(session.user.id)
-      else { setProfile(null); setRole(null); setLoading(false) }
-    })
+  // récupérer la session
+  supabase.auth.getSession().then(({ data: { session } }) => {
+    setUser(session?.user ?? null)
 
-    return () => subscription.unsubscribe()
-  }, [])
+    if (session?.user) {
+      fetchProfile(session.user.id)
+    } else {
+      setLoading(false)
+    }
+  })
+
+  // écouter login/logout
+  const { data: listener } = supabase.auth.onAuthStateChange(
+    (_event, session) => {
+      setUser(session?.user ?? null)
+
+      if (session?.user) {
+        fetchProfile(session.user.id)
+      } else {
+        setLoading(false)
+      }
+    }
+  )
+
+  return () => {
+    listener.subscription.unsubscribe()
+  }
+}, [])
 
   async function fetchProfile(userId) {
     try {
