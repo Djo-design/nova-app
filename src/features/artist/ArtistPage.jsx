@@ -12,13 +12,13 @@ import { ReportButton } from '@/shared/ui/ReportButton'
 import { YouTubeModal } from '@/shared/ui/YouTubeModal'
 
 const PLATFORM_ICONS = {
-  youtube_channel: { icon: '▶', label: 'YouTube',   color: '#FF0000' },
-  spotify:         { icon: '♫', label: 'Spotify',   color: '#1DB954' },
-  deezer:          { icon: '♪', label: 'Deezer',    color: '#FF0092' },
-  tiktok:          { icon: '♬', label: 'TikTok',    color: '#fff'    },
-  instagram:       { icon: '◈', label: 'Instagram', color: '#E1306C' },
-  facebook:        { icon: 'f', label: 'Facebook',  color: '#1877F2' },
-  other:           { icon: '↗', label: 'Lien',      color: '#888'    },
+  youtube_channel: { icon: 'YT', label: 'YouTube',   color: '#FF0000' },
+  spotify:         { icon: 'SP', label: 'Spotify',   color: '#1DB954' },
+  deezer:          { icon: 'DZ', label: 'Deezer',    color: '#FF0092' },
+  tiktok:          { icon: 'TK', label: 'TikTok',    color: '#ffffff' },
+  instagram:       { icon: 'IG', label: 'Instagram', color: '#E1306C' },
+  facebook:        { icon: 'FB', label: 'Facebook',  color: '#1877F2' },
+  other:           { icon: '->', label: 'Lien',       color: '#888888' },
 }
 
 function fmtTime(s) {
