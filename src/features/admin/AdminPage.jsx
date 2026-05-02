@@ -34,7 +34,7 @@ export function AdminPage() {
   async function fetchUsers() {
     const { data } = await supabase
       .from('profiles')
-      .select('*, user_roles(role)')
+      .select('*')
       .order('created_at', { ascending: false })
       .limit(50)
     setUsers(data || [])

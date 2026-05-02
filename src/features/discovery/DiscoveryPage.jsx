@@ -21,8 +21,7 @@ export function DiscoveryPage() {
       // Artistes avec leur rôle
       let query = supabase
         .from('profiles')
-        .select('*, user_roles!inner(role), artist_profiles(genres)')
-        .eq('user_roles.role', 'artist')
+        .select('*')
         .is('suspended_at', null)
 
       if (search.trim()) query = query.ilike('username', `%${search.trim()}%`)
