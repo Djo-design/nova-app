@@ -1,5 +1,25 @@
 // src/shared/ui/BottomNav.jsx
 import { Link, useLocation } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { supabase } from '@/shared/lib/supabase'
+import { useAuth } from '@/features/auth/AuthContext'
+
+function useUnreadCount() {
+  const { user } = useAuth()
+  const [count, setCount] = useState(0)
+
+  useEffect(() => {
+    if (!user) return
+    supabase
+      .from('notifications')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .is('read_at', null)
+      .then(({ count: c }) => setCount(c || 0))
+  }, [user])
+
+  return count
+}
 
 const tabs = [
   {
@@ -28,7 +48,7 @@ const tabs = [
   },
   {
     path: '/discovery',
-    label: 'DÉCOUVERTE',
+    label: 'DECOUVERTE',
     icon: (active) => (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
         <circle cx="11" cy="11" r="7" stroke={active ? '#00FF87' : '#444'} strokeWidth="1.5"/>
@@ -60,6 +80,7 @@ const tabs = [
 
 export function BottomNav() {
   const { pathname } = useLocation()
+  const unread = useUnreadCount()
 
   return (
     <nav style={styles.nav}>
@@ -77,6 +98,27 @@ export function BottomNav() {
           </Link>
         )
       })}
+
+      {/* Cloche notifications séparée */}
+      <Link to="/notifications" style={styles.tab}>
+        <div style={{ position: 'relative' }}>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+            <path
+              d="M12 2a7 7 0 0 0-7 7v4l-2 3h18l-2-3V9a7 7 0 0 0-7-7z"
+              stroke={pathname.startsWith('/notifications') ? '#00FF87' : '#444'}
+              strokeWidth="1.5"
+            />
+            <path d="M10 19a2 2 0 0 0 4 0" stroke={pathname.startsWith('/notifications') ? '#00FF87' : '#444'} strokeWidth="1.5"/>
+          </svg>
+          {unread > 0 && (
+            <div style={styles.badge}>{unread > 9 ? '9+' : unread}</div>
+          )}
+          {pathname.startsWith('/notifications') && <div style={styles.dot} />}
+        </div>
+        <span style={{ ...styles.label, color: pathname.startsWith('/notifications') ? '#00FF87' : '#444', fontSize: '7px' }}>
+          NOTIFS
+        </span>
+      </Link>
     </nav>
   )
 }
@@ -107,7 +149,14 @@ const styles = {
     position: 'absolute', bottom: '-5px', left: '50%',
     transform: 'translateX(-50%)',
     width: '4px', height: '4px', borderRadius: '50%',
-    background: '#00FF87',
-    boxShadow: '0 0 6px #00FF87',
+    background: '#00FF87', boxShadow: '0 0 6px #00FF87',
+  },
+  badge: {
+    position: 'absolute', top: '-4px', right: '-6px',
+    background: '#ff4444', color: '#fff',
+    borderRadius: '10px', padding: '1px 5px',
+    fontSize: '9px', fontFamily: "'Space Grotesk',sans-serif",
+    fontWeight: 700, minWidth: '16px', textAlign: 'center',
+    border: '1px solid #090909',
   },
 }

@@ -6,29 +6,31 @@ import { useAuth } from '@/features/auth/AuthContext'
 
 export function FollowButton({ artistId, size = 'md' }) {
   const { user } = useAuth()
-  const navigate = useNavigate()
+  const navigate  = useNavigate()
   const [following, setFollowing] = useState(false)
   const [count, setCount]         = useState(0)
   const [loading, setLoading]     = useState(false)
 
   useEffect(() => {
+    if (!artistId) return
     fetchState()
   }, [artistId, user])
 
   async function fetchState() {
-    // Nb d'abonnés
     const { count: c } = await supabase
-      .from('follows').select('*', { count: 'exact', head: true })
+      .from('follows')
+      .select('*', { count: 'exact', head: true })
       .eq('artist_id', artistId)
     setCount(c || 0)
 
-    // Est-ce que l'user suit déjà ?
     if (!user) return
+    // maybeSingle evite le 406 quand aucune ligne n'existe
     const { data } = await supabase
-      .from('follows').select('follower_id')
+      .from('follows')
+      .select('follower_id')
       .eq('follower_id', user.id)
       .eq('artist_id', artistId)
-      .single()
+      .maybeSingle()
     setFollowing(!!data)
   }
 
@@ -39,7 +41,8 @@ export function FollowButton({ artistId, size = 'md' }) {
     try {
       if (following) {
         await supabase.from('follows').delete()
-          .eq('follower_id', user.id).eq('artist_id', artistId)
+          .eq('follower_id', user.id)
+          .eq('artist_id', artistId)
         setCount(c => Math.max(0, c - 1))
         setFollowing(false)
       } else {
@@ -47,8 +50,11 @@ export function FollowButton({ artistId, size = 'md' }) {
         setCount(c => c + 1)
         setFollowing(true)
       }
-    } catch (e) { console.error(e) }
-    finally { setLoading(false) }
+    } catch (e) {
+      console.error('FollowButton error:', e)
+    } finally {
+      setLoading(false)
+    }
   }
 
   const isSmall = size === 'sm'
@@ -58,7 +64,7 @@ export function FollowButton({ artistId, size = 'md' }) {
       onClick={toggle}
       style={{
         background: following ? 'transparent' : '#00FF87',
-        color:      following ? '#00FF87'      : '#000',
+        color:      following ? '#00FF87' : '#000',
         border:     following ? '1px solid #00FF87' : 'none',
         borderRadius: '20px',
         padding: isSmall ? '6px 14px' : '10px 22px',
@@ -74,12 +80,7 @@ export function FollowButton({ artistId, size = 'md' }) {
     >
       {following ? '✓ Abonné' : '+ Suivre'}
       {count > 0 && (
-        <span style={{
-          fontFamily: "'Inter',sans-serif",
-          fontSize: isSmall ? '10px' : '11px',
-          fontWeight: 400,
-          opacity: 0.7,
-        }}>
+        <span style={{ fontFamily: "'Inter',sans-serif", fontSize: '11px', fontWeight: 400, opacity: 0.7 }}>
           {count}
         </span>
       )}

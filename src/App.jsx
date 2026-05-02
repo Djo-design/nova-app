@@ -22,6 +22,7 @@ import { DiscoveryPage }      from '@/features/discovery/DiscoveryPage'
 import { ProfilePage }        from '@/features/profile/ProfilePage'
 import { EditProfilePage }    from '@/features/profile/EditProfilePage'
 import { UploadPage }         from '@/features/upload/UploadPage'
+import { NotificationsPage }  from '@/features/notifications/NotificationsPage'
 
 // Artiste
 import { ArtistPage }         from '@/features/artist/ArtistPage'
@@ -57,22 +58,23 @@ export function App() {
             <Route path="/register"        element={<RegisterPage />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
 
-            {/* Pages principales */}
-            <Route path="/radio"      element={<AppLayout><RadioPage /></AppLayout>} />
-            <Route path="/tv"         element={<AppLayout><TVPage /></AppLayout>} />
-            <Route path="/discovery"  element={<AppLayout><DiscoveryPage /></AppLayout>} />
-
-            {/* Upload (artiste requis) */}
-            <Route path="/upload" element={<AppLayout><ProtectedRoute><UploadPage /></ProtectedRoute></AppLayout>} />
+            {/* App */}
+            <Route path="/radio"     element={<AppLayout><RadioPage /></AppLayout>} />
+            <Route path="/tv"        element={<AppLayout><TVPage /></AppLayout>} />
+            <Route path="/discovery" element={<AppLayout><DiscoveryPage /></AppLayout>} />
+            <Route path="/upload"    element={<AppLayout><ProtectedRoute><UploadPage /></ProtectedRoute></AppLayout>} />
 
             {/* Profil */}
             <Route path="/profile"      element={<AppLayout><ProtectedRoute><ProfilePage /></ProtectedRoute></AppLayout>} />
             <Route path="/profile/edit" element={<AppLayout><ProtectedRoute><EditProfilePage /></ProtectedRoute></AppLayout>} />
 
+            {/* Notifications */}
+            <Route path="/notifications" element={<AppLayout><ProtectedRoute><NotificationsPage /></ProtectedRoute></AppLayout>} />
+
             {/* Artiste */}
-            <Route path="/artist/:artistId"  element={<AppLayout><ArtistPage /></AppLayout>} />
-            <Route path="/dashboard"         element={<AppLayout><ProtectedRoute><DashboardPage /></ProtectedRoute></AppLayout>} />
-            <Route path="/become-artist"     element={<AppLayout><ProtectedRoute><BecomeArtistPage /></ProtectedRoute></AppLayout>} />
+            <Route path="/artist/:artistId" element={<AppLayout><ArtistPage /></AppLayout>} />
+            <Route path="/dashboard"        element={<AppLayout><ProtectedRoute><DashboardPage /></ProtectedRoute></AppLayout>} />
+            <Route path="/become-artist"    element={<AppLayout><ProtectedRoute><BecomeArtistPage /></ProtectedRoute></AppLayout>} />
 
             {/* Admin */}
             <Route path="/admin" element={<AppLayout><AdminRoute><AdminPage /></AdminRoute></AppLayout>} />

@@ -1,7 +1,5 @@
 // src/features/artist/ArtistPage.jsx
 import { useState, useEffect } from 'react'
-<parameter name="file_text">// src/features/artist/ArtistPage.jsx
-import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '@/shared/lib/supabase'
 import { useAuth } from '@/features/auth/AuthContext'
@@ -26,7 +24,7 @@ function fmtTime(s) {
   return `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`
 }
 
-const TABS = ['Tracks', 'Vidéos', 'YouTube', 'Infos']
+const TABS = ['Tracks', 'Videos', 'YouTube', 'Infos']
 
 export function ArtistPage() {
   const { artistId } = useParams()
@@ -90,7 +88,7 @@ export function ArtistPage() {
   if (!profile) return (
     <div style={styles.center}>
       <p style={{ color: '#888', fontFamily: "'Inter',sans-serif" }}>Artiste introuvable</p>
-      <button style={styles.backBtn} onClick={() => navigate(-1)}>← Retour</button>
+      <button style={styles.backBtn} onClick={() => navigate(-1)}>Retour</button>
     </div>
   )
 
@@ -102,28 +100,34 @@ export function ArtistPage() {
     <div style={styles.page}>
       {ytModal && <YouTubeModal videoId={ytModal} onClose={() => setYtModal(null)} />}
 
-      <button style={styles.backFloat} onClick={() => navigate(-1)}>←</button>
+      <button style={styles.backFloat} onClick={() => navigate(-1)}>{'<'}</button>
 
       {/* Hero */}
       <div style={styles.hero}>
         <div style={styles.heroBg}>
-          {profile.avatar_url && <img src={profile.avatar_url} style={styles.heroBgImg} alt="" />}
+          {profile.avatar_url && (
+            <img src={profile.avatar_url} style={styles.heroBgImg} alt="" />
+          )}
           <div style={styles.heroBgOverlay} />
         </div>
         <div style={styles.heroContent}>
           <div style={styles.avatar}>
             {profile.avatar_url
               ? <img src={profile.avatar_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
-              : <span style={{ fontSize: '36px' }}>🎤</span>}
+              : <span style={{ fontSize: '36px' }}>mic</span>}
           </div>
           <div style={styles.heroInfo}>
             <h1 style={styles.artistName}>{profile.username}</h1>
             {artistProfile?.genres?.length > 0 && (
               <div style={styles.genres}>
-                {artistProfile.genres.map(g => <span key={g} style={styles.genreTag}>{g}</span>)}
+                {artistProfile.genres.map(g => (
+                  <span key={g} style={styles.genreTag}>{g}</span>
+                ))}
               </div>
             )}
-            {artistProfile?.country && <p style={styles.country}>📍 {artistProfile.country}</p>}
+            {artistProfile?.country && (
+              <p style={styles.country}>{artistProfile.country}</p>
+            )}
           </div>
         </div>
       </div>
@@ -132,7 +136,7 @@ export function ArtistPage() {
       <div style={styles.statsBar}>
         {[
           { label: 'Tracks',  value: tracks.length },
-          { label: 'Écoutes', value: totalPlays    },
+          { label: 'Ecoutes', value: totalPlays    },
           { label: 'Likes',   value: totalLikes    },
           { label: 'Vues',    value: totalViews    },
         ].map((s, i, arr) => (
@@ -148,27 +152,24 @@ export function ArtistPage() {
 
       {/* Actions */}
       <div style={styles.actionsRow}>
-        {/* Bouton suivre — composant réutilisable */}
         {!isOwnProfile && <FollowButton artistId={artistId} />}
-
         {isOwnProfile && (
-          <button style={styles.editBtn} onClick={() => navigate('/profile/edit')}>✏️ Modifier</button>
+          <button style={styles.editBtn} onClick={() => navigate('/profile/edit')}>
+            Modifier
+          </button>
         )}
-
-        {/* Signaler le profil */}
         {!isOwnProfile && user && (
           <ReportButton targetType="profile" targetId={artistId} />
         )}
-
-        {/* Liens sociaux */}
         {links.map(link => {
           const p = PLATFORM_ICONS[link.platform] || PLATFORM_ICONS.other
           return (
-            <button key={link.id}
+            <button
+              key={link.id}
               style={{ ...styles.linkBtn, borderColor: p.color + '44' }}
               onClick={() => openExternalLink(link.url)}
             >
-              <span style={{ color: p.color, fontSize: '13px' }}>{p.icon}</span>
+              <span style={{ color: p.color, fontSize: '11px', fontWeight: 700 }}>{p.icon}</span>
               <span style={styles.linkLabel}>{link.label || p.label}</span>
             </button>
           )
@@ -185,7 +186,8 @@ export function ArtistPage() {
       {/* Tabs */}
       <div style={styles.tabs}>
         {TABS.map((t, i) => (
-          <button key={i}
+          <button
+            key={i}
             style={{ ...styles.tab, ...(activeTab === i ? styles.tabActive : {}) }}
             onClick={() => setActiveTab(i)}
           >
@@ -202,17 +204,19 @@ export function ArtistPage() {
         {/* TRACKS */}
         {activeTab === 0 && (
           tracks.length === 0
-            ? <div style={styles.empty}>Aucune track uploadée</div>
+            ? <div style={styles.empty}>Aucune track uploadee</div>
             : tracks.map((track, i) => (
               <div key={track.id} style={styles.trackRow} onClick={() => playQueue(tracks, i)}>
                 <div style={styles.trackCover}>
                   {track.cover_url
                     ? <img src={track.cover_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
-                    : <span style={{ fontSize: '18px' }}>🎵</span>}
+                    : <span style={{ fontSize: '18px' }}>-</span>}
                 </div>
                 <div style={styles.trackInfo}>
                   <div style={styles.trackTitle}>{track.title}</div>
-                  <div style={styles.trackMeta}>{[track.genre, fmtTime(track.duration)].filter(Boolean).join(' · ')}</div>
+                  <div style={styles.trackMeta}>
+                    {[track.genre, fmtTime(track.duration)].filter(Boolean).join(' - ')}
+                  </div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }} onClick={e => e.stopPropagation()}>
                   <LikeButton targetType="track" targetId={track.id} initialLikes={track.likes} size="sm" />
@@ -222,23 +226,23 @@ export function ArtistPage() {
             ))
         )}
 
-        {/* VIDÉOS */}
+        {/* VIDEOS */}
         {activeTab === 1 && (
           videos.length === 0
-            ? <div style={styles.empty}>Aucune vidéo uploadée</div>
+            ? <div style={styles.empty}>Aucune video uploadee</div>
             : <div style={styles.videoGrid}>
                 {videos.map(video => (
                   <div key={video.id} style={styles.videoCard}>
                     <div style={styles.videoThumb} onClick={() => navigate('/tv')}>
                       {video.thumb_url
                         ? <img src={video.thumb_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
-                        : <span style={{ fontSize: '28px' }}>📹</span>}
-                      <div style={styles.playOverlay}>▶</div>
+                        : <span style={{ fontSize: '28px' }}>video</span>}
+                      <div style={styles.playOverlay}>play</div>
                     </div>
                     <div style={styles.videoFooter}>
                       <div style={styles.videoTitle}>{video.title}</div>
                       <div style={styles.videoMeta}>
-                        <span>👁 {video.views || 0}</span>
+                        <span>{video.views || 0} vues</span>
                         <div onClick={e => e.stopPropagation()}>
                           <ReportButton targetType="video" targetId={video.id} />
                         </div>
@@ -249,10 +253,10 @@ export function ArtistPage() {
               </div>
         )}
 
-        {/* YOUTUBE — lecture dans l'app */}
+        {/* YOUTUBE */}
         {activeTab === 2 && (
           ytVideos.length === 0
-            ? <div style={styles.empty}>Aucune vidéo YouTube ajoutée</div>
+            ? <div style={styles.empty}>Aucune video YouTube ajoutee</div>
             : <div style={styles.ytGrid}>
                 {ytVideos.map(yt => (
                   <div key={yt.id} style={styles.ytCard} onClick={() => setYtModal(yt.youtube_id)}>
@@ -262,10 +266,10 @@ export function ArtistPage() {
                         style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                         alt=""
                       />
-                      <div style={styles.ytPlayOverlay}>▶</div>
+                      <div style={styles.ytPlayOverlay}>play</div>
                       <div style={styles.ytBadge}>YouTube</div>
                     </div>
-                    <div style={styles.ytTitle}>{yt.title || 'Vidéo YouTube'}</div>
+                    <div style={styles.ytTitle}>{yt.title || 'Video YouTube'}</div>
                   </div>
                 ))}
               </div>
@@ -276,11 +280,11 @@ export function ArtistPage() {
           <div style={styles.infoCard}>
             <div style={styles.infoLabel}>STATISTIQUES</div>
             {[
-              ['Écoutes totales', totalPlays],
+              ['Ecoutes totales', totalPlays],
               ['Likes totaux',    totalLikes],
-              ['Vues vidéo',      totalViews],
+              ['Vues video',      totalViews],
               ['Tracks',          tracks.length],
-              ['Vidéos',          videos.length],
+              ['Videos',          videos.length],
             ].map(([k, v]) => (
               <div key={k} style={styles.infoRow}>
                 <span style={styles.infoKey}>{k}</span>
